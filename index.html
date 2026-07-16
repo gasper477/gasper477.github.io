@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>发运填表工具</title>
+    <style>
+:root {
+  color-scheme: light;
+  --bg: #f5f7f8;
+  --surface: #ffffff;
+  --text: #1f2933;
+  --muted: #64717d;
+  --line: #d9e0e6;
+  --accent: #1f7a6d;
+  --accent-strong: #165f55;
+  --accent-soft: #e7f4f1;
+  --error: #b42318;
+  --success: #237a45;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    "Trebuchet MS", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+.app-shell {
+  width: min(1180px, calc(100vw - 40px));
+  margin: 40px auto;
+}
+
+.toolbar,
+.status-panel,
+.result-summary,
+.file-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.toolbar {
+  margin-bottom: 22px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 720;
+  line-height: 1.18;
+  letter-spacing: 0;
+}
+
+p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+button {
+  font: inherit;
+}
+
+.primary-button,
+.copy-button {
+  min-width: 132px;
+  height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(31, 122, 109, 0.18);
+}
+
+.copy-button {
+  min-width: 128px;
+  height: 36px;
+  background: #23313d;
+  box-shadow: none;
+}
+
+.primary-button:hover:not(:disabled),
+.copy-button:hover {
+  background: var(--accent-strong);
+}
+
+.primary-button:disabled {
+  cursor: not-allowed;
+  background: #a9b5bd;
+  box-shadow: none;
+}
+
+.drop-zone {
+  display: grid;
+  min-height: 210px;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 22px;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.drop-zone:hover,
+.drop-zone.has-file,
+.drop-zone.is-dragging {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.drop-zone input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.slot-name {
+  font-size: 20px;
+  font-weight: 720;
+}
+
+.file-name {
+  min-height: 28px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.file-panel,
+.status-panel,
+.result-panel {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.file-panel-head,
+.result-summary {
+  min-height: 44px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.file-panel-head button,
+.result-summary button {
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.file-panel-head button:disabled {
+  cursor: not-allowed;
+  color: #9aa6ae;
+}
+
+.file-panel ul {
+  display: grid;
+  gap: 8px;
+  min-height: 52px;
+  margin: 0;
+  padding: 12px 14px;
+  list-style: none;
+}
+
+.file-panel ul:empty::before {
+  content: "无";
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.file-panel li {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  border: 1px solid #e5eaee;
+  border-radius: 8px;
+  padding: 0 11px;
+  color: var(--text);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.status-panel {
+  min-height: 58px;
+  padding: 0 18px;
+}
+
+.status-panel div {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.status-panel div[data-state="working"] {
+  color: var(--accent-strong);
+}
+
+.status-panel div[data-state="success"] {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.status-panel div[data-state="error"] {
+  color: var(--error);
+  font-weight: 700;
+}
+
+.table-wrap {
+  max-height: 62vh;
+  overflow: auto;
+}
+
+table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+th,
+td {
+  min-width: 150px;
+  max-width: 420px;
+  border-right: 1px solid #e8edf1;
+  border-bottom: 1px solid #e8edf1;
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #eef5f3;
+  color: var(--text);
+  font-weight: 720;
+}
+
+thead tr:nth-child(2) th {
+  top: 34px;
+  background: #f8fbfa;
+  padding: 6px 8px;
+}
+
+thead input {
+  width: 100%;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 8px;
+  color: var(--text);
+  font: inherit;
+}
+
+tbody tr:nth-child(even) td {
+  background: #fbfcfd;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    width: min(100vw - 24px, 520px);
+    margin: 20px auto;
+  }
+
+  .toolbar,
+  .status-panel,
+  .result-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .primary-button,
+  .copy-button {
+    width: 100%;
+  }
+}
+
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="toolbar" aria-label="发运填表工具">
+        <div>
+          <h1>发运填表工具</h1>
+          <p>VIN 对齐，生成可复制数据</p>
+        </div>
+        <button id="generate" class="primary-button" type="button" disabled>生成数据</button>
+      </section>
+
+      <label class="drop-zone" id="dropZone">
+        <input id="fileInput" type="file" accept=".xlsx" multiple />
+        <span class="slot-name">文件</span>
+        <span class="file-name" id="fileName">未选择</span>
+      </label>
+
+      <section class="file-panel" aria-label="已选择文件">
+        <div class="file-panel-head">
+          <span>已选择</span>
+          <button id="clearFiles" type="button" disabled>清空</button>
+        </div>
+        <ul id="fileList"></ul>
+      </section>
+
+      <section class="status-panel" aria-live="polite">
+        <div id="statusText" data-state="idle">等待文件</div>
+        <button id="copyVisible" class="copy-button" type="button" hidden>复制筛选结果</button>
+      </section>
+
+      <section class="result-panel" id="resultPanel" hidden aria-label="结果数据">
+        <div class="result-summary">
+          <span id="rowCount">0 行</span>
+          <button id="clearFilters" type="button">清空筛选</button>
+        </div>
+        <div class="table-wrap">
+          <table id="resultTable"></table>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script>
+const headers = [
+  "VIN",
+  "Model",
+  "CC Date",
+  "Location",
+  "Sales Number",
+  "Tracking Number/order number",
+  "Company",
+  "Delivery adress",
+  "Ready to Shipped Date",
+  "Status",
+  "ETD",
+  "ATD",
+  "ETA",
+  "ATA",
+];
+
+const fieldMap = {
+  vin: ["VIN码", "vin", "VIN"],
+  salesNumber: ["销售单号", "Sales Number"],
+  trackingNumber: ["发运单号", "Tracking Number/order number"],
+  company: ["收车单位", "Company"],
+  deliveryAddress: ["收车地址", "Delivery adress", "Delivery address"],
+  readyToShipDate: ["发运单生成时间", "Ready to Shipped Date"],
+  model: ["车系名称", "Model"],
+  ccDate: ["清关日期", "CC Date"],
+  location: ["清关港口", "港口信息", "目的港口", "Location"],
+};
+
+const detectionRules = {
+  table1: ["VIN码", "收车单位", "收车地址", "发运单生成时间"],
+  table2: ["vin", "车系名称", "清关日期"],
+  template: ["VIN", "Model", "CC Date", "Location", "Sales Number", "Tracking Number/order number"],
+};
+
+let selectedFiles = [];
+let rows = [];
+let filters = headers.map(() => "");
+let filteredRows = [];
+
+const dropZone = document.querySelector("#dropZone");
+const fileInput = document.querySelector("#fileInput");
+const fileName = document.querySelector("#fileName");
+const fileList = document.querySelector("#fileList");
+const clearFiles = document.querySelector("#clearFiles");
+const generate = document.querySelector("#generate");
+const statusText = document.querySelector("#statusText");
+const copyVisible = document.querySelector("#copyVisible");
+const resultPanel = document.querySelector("#resultPanel");
+const rowCount = document.querySelector("#rowCount");
+const clearFilters = document.querySelector("#clearFilters");
+const resultTable = document.querySelector("#resultTable");
+
+function normalizeHeader(value) {
+  return String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function normalizeKey(value) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function cleanCell(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).replace(/[\t\r\n]+/g, " ").trim();
+}
+
+function isBlank(value) {
+  return cleanCell(value) === "";
+}
+
+function setStatus(message, state = "idle") {
+  statusText.textContent = message;
+  statusText.dataset.state = state;
+}
+
+function updateControls() {
+  generate.disabled = selectedFiles.length < 2;
+  clearFiles.disabled = selectedFiles.length === 0;
+  dropZone.classList.toggle("has-file", selectedFiles.length > 0);
+  fileName.textContent = selectedFiles.length ? `${selectedFiles.length} 个文件` : "未选择";
+}
+
+function renderFiles() {
+  fileList.replaceChildren();
+  for (const file of selectedFiles) {
+    const item = document.createElement("li");
+    item.textContent = file.name;
+    fileList.append(item);
+  }
+  updateControls();
+}
+
+function resetResult() {
+  rows = [];
+  filters = headers.map(() => "");
+  filteredRows = [];
+  resultPanel.hidden = true;
+  copyVisible.hidden = true;
+  resultTable.replaceChildren();
+  rowCount.textContent = "0 行";
+}
+
+function fileKey(file) {
+  return `${file.name}:${file.size}:${file.lastModified}`;
+}
+
+function addFiles(fileSource) {
+  const incoming = [...(fileSource ?? [])].filter((file) => file.name.toLowerCase().endsWith(".xlsx"));
+  if (!incoming.length) {
+    setStatus("只支持 .xlsx 文件", "error");
+    return;
+  }
+
+  const existing = new Set(selectedFiles.map(fileKey));
+  for (const file of incoming) {
+    const key = fileKey(file);
+    if (!existing.has(key)) {
+      selectedFiles.push(file);
+      existing.add(key);
+    }
+  }
+
+  resetResult();
+  renderFiles();
+  setStatus(selectedFiles.length >= 2 ? "可以生成" : "等待文件");
+}
+
+function buildHeaderIndex(row) {
+  const index = new Map();
+  row.forEach((header, i) => {
+    const normalized = normalizeHeader(header);
+    if (normalized) index.set(normalized, i);
+  });
+  return index;
+}
+
+function findColumn(index, candidates, sourceName) {
+  for (const candidate of candidates) {
+    const found = index.get(normalizeHeader(candidate));
+    if (found !== undefined) return found;
+  }
+  throw new Error(`${sourceName} 缺少必要列：${candidates.join(" / ")}`);
+}
+
+function firstPresent(row, indexes) {
+  for (const index of indexes) {
+    if (!isBlank(row[index])) return row[index];
+  }
+  return "";
+}
+
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+
+function serialToDateText(value, includeTime) {
+  const serial = Number(value);
+  if (!Number.isFinite(serial)) return cleanCell(value);
+  const ms = Math.round((serial - 25569) * 86400 * 1000);
+  const date = new Date(ms);
+  const base = `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
+  if (!includeTime) return base;
+  return `${base} ${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}:${pad2(date.getUTCSeconds())}`;
+}
+
+function normalizeDateText(value, includeTime) {
+  const text = cleanCell(value);
+  if (!text) return "";
+  const match = text.match(
+    /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/,
+  );
+  if (!match) return text;
+  const [, year, month, day, hour, minute, second] = match;
+  const base = `${year}-${pad2(month)}-${pad2(day)}`;
+  if (!includeTime || hour === undefined) return base;
+  return `${base} ${pad2(hour)}:${pad2(minute)}:${pad2(second ?? "0")}`;
+}
+
+function hasAll(headersSet, required) {
+  return required.every((header) => headersSet.has(normalizeHeader(header)));
+}
+
+function detectRole(row) {
+  const set = new Set(row.map(normalizeHeader));
+  if (hasAll(set, detectionRules.table1)) return "table1";
+  if (hasAll(set, detectionRules.table2)) return "table2";
+  if (hasAll(set, detectionRules.template)) return "template";
+  return "unknown";
+}
+
+function colIndex(cellRef, fallback) {
+  const letters = cellRef.match(/[A-Z]+/i)?.[0];
+  if (!letters) return fallback;
+  let index = 0;
+  for (const letter of letters.toUpperCase()) {
+    index = index * 26 + letter.charCodeAt(0) - 64;
+  }
+  return index - 1;
+}
+
+function parseXml(xml) {
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  if (doc.querySelector("parsererror")) {
+    throw new Error("文件内容无法解析");
+  }
+  return doc;
+}
+
+async function zipText(zip, path) {
+  const file = zip.file(path);
+  if (!file) return "";
+  return file.async("text");
+}
+
+function normalizeZipTarget(target) {
+  if (target.startsWith("/")) return target.slice(1);
+  return `xl/${target}`.replaceAll("//", "/");
+}
+
+function parseSharedStrings(xml) {
+  if (!xml) return [];
+  const doc = parseXml(xml);
+  return [...doc.getElementsByTagName("si")].map((si) => cleanCell(si.textContent ?? ""));
+}
+
+function styleDateInfo(xml) {
+  const builtInDateIds = new Set([
+    14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 45, 46, 47, 50, 51, 52, 53, 54, 55,
+    56, 57, 58,
+  ]);
+  if (!xml) return new Map();
+
+  const doc = parseXml(xml);
+  const custom = new Map();
+  for (const numFmt of [...doc.getElementsByTagName("numFmt")]) {
+    const id = Number(numFmt.getAttribute("numFmtId"));
+    const code = numFmt.getAttribute("formatCode") ?? "";
+    if (Number.isFinite(id)) custom.set(id, code);
+  }
+
+  const info = new Map();
+  const cellXfs = doc.getElementsByTagName("cellXfs")[0];
+  const xfs = cellXfs ? [...cellXfs.getElementsByTagName("xf")] : [];
+  xfs.forEach((xf, index) => {
+    const numFmtId = Number(xf.getAttribute("numFmtId"));
+    const code = custom.get(numFmtId) ?? "";
+    const normalized = code.replace(/"[^"]*"/g, "").replace(/\[[^\]]*]/g, "").toLowerCase();
+    const isDate = builtInDateIds.has(numFmtId) || /[ymdh s]/.test(normalized);
+    const includeTime = /[hs]/.test(normalized) || [18, 19, 20, 21, 22, 45, 46, 47].includes(numFmtId);
+    info.set(index, { isDate, includeTime });
+  });
+  return info;
+}
+
+function cellValue(cell, sharedStrings, styles) {
+  const type = cell.getAttribute("t");
+  const styleId = Number(cell.getAttribute("s") ?? "-1");
+  const value = cell.getElementsByTagName("v")[0]?.textContent ?? "";
+
+  if (type === "s") return sharedStrings[Number(value)] ?? "";
+  if (type === "inlineStr") return cleanCell(cell.getElementsByTagName("is")[0]?.textContent ?? "");
+  if (type === "b") return value === "1" ? "TRUE" : "FALSE";
+  if (type === "d") return normalizeDateText(value, true);
+
+  const style = styles.get(styleId);
+  if (style?.isDate && value) return serialToDateText(value, style.includeTime);
+  return cleanCell(value);
+}
+
+async function readWorkbook(file) {
+  if (!file.name.toLowerCase().endsWith(".xlsx")) {
+    throw new Error(`${file.name} 不是 .xlsx 文件`);
+  }
+  if (!window.JSZip) throw new Error("Excel 读取组件加载失败");
+
+  const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
+  const workbookXml = await zipText(zip, "xl/workbook.xml");
+  const relsXml = await zipText(zip, "xl/_rels/workbook.xml.rels");
+  if (!workbookXml || !relsXml) throw new Error(`${file.name} 不是有效的 Excel 文件`);
+
+  const workbookDoc = parseXml(workbookXml);
+  const relsDoc = parseXml(relsXml);
+  const firstSheet = workbookDoc.getElementsByTagName("sheet")[0];
+  const relationshipId =
+    firstSheet?.getAttribute("r:id") ?? firstSheet?.getAttribute("id") ?? firstSheet?.getAttributeNS("*", "id");
+  if (!relationshipId) throw new Error(`${file.name} 找不到第一个工作表`);
+
+  const relationship = [...relsDoc.getElementsByTagName("Relationship")].find(
+    (rel) => rel.getAttribute("Id") === relationshipId,
+  );
+  const target = relationship?.getAttribute("Target");
+  if (!target) throw new Error(`${file.name} 找不到工作表内容`);
+
+  const [sheetXml, sharedXml, stylesXml] = await Promise.all([
+    zipText(zip, normalizeZipTarget(target)),
+    zipText(zip, "xl/sharedStrings.xml"),
+    zipText(zip, "xl/styles.xml"),
+  ]);
+  const sharedStrings = parseSharedStrings(sharedXml);
+  const styles = styleDateInfo(stylesXml);
+  const sheetDoc = parseXml(sheetXml);
+
+  const workbookRows = [...sheetDoc.getElementsByTagName("row")].map((row) => {
+    const values = [];
+    [...row.getElementsByTagName("c")].forEach((cell, fallbackIndex) => {
+      const index = colIndex(cell.getAttribute("r") ?? "", fallbackIndex);
+      values[index] = cellValue(cell, sharedStrings, styles);
+    });
+    return values.map((value) => value ?? "");
+  });
+
+  return {
+    fileName: file.name,
+    headers: workbookRows[0] ?? [],
+    rows: workbookRows.slice(1).filter((row) => row.some((value) => !isBlank(value))),
+  };
+}
+
+function assertUnique(workbookRows, vinIndex, sourceName) {
+  const seen = new Set();
+  const duplicates = [];
+  const blanks = [];
+  workbookRows.forEach((row, rowIndex) => {
+    const vin = normalizeKey(row[vinIndex]);
+    if (!vin) {
+      blanks.push(`第${rowIndex + 2}行`);
+    } else if (seen.has(vin)) {
+      duplicates.push(vin);
+    } else {
+      seen.add(vin);
+    }
+  });
+
+  if (blanks.length) throw new Error(`${sourceName} VIN 为空：${blanks.slice(0, 20).join("；")}`);
+  if (duplicates.length) throw new Error(`${sourceName} VIN 有重复，无法安全匹配：${[...new Set(duplicates)].join(", ")}`);
+}
+
+function assertRequired(workbookRows, fields, sourceName) {
+  const missing = [];
+  workbookRows.forEach((row, rowIndex) => {
+    for (const field of fields) {
+      if (isBlank(row[field.index])) missing.push(`第${rowIndex + 2}行 ${field.label}`);
+    }
+  });
+  if (missing.length) throw new Error(`${sourceName} 关键字段为空：${missing.slice(0, 20).join("；")}`);
+}
+
+function buildOutput(table1, table2) {
+  const table1Index = buildHeaderIndex(table1.headers);
+  const table2Index = buildHeaderIndex(table2.headers);
+  const t1 = {
+    vin: findColumn(table1Index, fieldMap.vin, "表格一"),
+    salesNumber: findColumn(table1Index, fieldMap.salesNumber, "表格一"),
+    trackingNumber: findColumn(table1Index, fieldMap.trackingNumber, "表格一"),
+    company: findColumn(table1Index, fieldMap.company, "表格一"),
+    deliveryAddress: findColumn(table1Index, fieldMap.deliveryAddress, "表格一"),
+    readyToShipDate: findColumn(table1Index, fieldMap.readyToShipDate, "表格一"),
+  };
+  const t2 = {
+    vin: findColumn(table2Index, fieldMap.vin, "表格二"),
+    model: findColumn(table2Index, fieldMap.model, "表格二"),
+    ccDate: findColumn(table2Index, fieldMap.ccDate, "表格二"),
+    locationColumns: fieldMap.location
+      .map((candidate) => table2Index.get(normalizeHeader(candidate)))
+      .filter((index) => index !== undefined),
+  };
+  if (!t2.locationColumns.length) throw new Error(`表格二 缺少必要列：${fieldMap.location.join(" / ")}`);
+
+  assertUnique(table1.rows, t1.vin, "表格一");
+  assertUnique(table2.rows, t2.vin, "表格二");
+  assertRequired(table1.rows, [
+    { label: "VIN", index: t1.vin },
+    { label: "销售单号", index: t1.salesNumber },
+    { label: "发运单号", index: t1.trackingNumber },
+    { label: "收车单位", index: t1.company },
+    { label: "收车地址", index: t1.deliveryAddress },
+    { label: "发运单生成时间", index: t1.readyToShipDate },
+  ], "表格一");
+  assertRequired(table2.rows, [
+    { label: "VIN", index: t2.vin },
+    { label: "车系名称", index: t2.model },
+  ], "表格二");
+
+  const vehicleByVin = new Map(table2.rows.map((row) => [normalizeKey(row[t2.vin]), row]));
+  const missing = [];
+  const output = table1.rows.map((row) => {
+    const vin = normalizeKey(row[t1.vin]);
+    const vehicle = vehicleByVin.get(vin);
+    if (!vehicle) missing.push(row[t1.vin]);
+    return [
+      cleanCell(row[t1.vin]),
+      cleanCell(vehicle?.[t2.model]),
+      normalizeDateText(vehicle?.[t2.ccDate], false),
+      cleanCell(vehicle ? firstPresent(vehicle, t2.locationColumns) : ""),
+      cleanCell(row[t1.salesNumber]),
+      cleanCell(row[t1.trackingNumber]),
+      cleanCell(row[t1.company]),
+      cleanCell(row[t1.deliveryAddress]),
+      normalizeDateText(row[t1.readyToShipDate], true),
+      "",
+      "",
+      "",
+      "",
+      "",
+    ];
+  });
+
+  if (missing.length) throw new Error(`表格二找不到这些 VIN：${missing.slice(0, 20).join(", ")}`);
+  return output;
+}
+
+function rowMatches(row) {
+  return filters.every((filter, index) => {
+    const needle = filter.trim().toLowerCase();
+    if (!needle) return true;
+    return cleanCell(row[index]).toLowerCase().includes(needle);
+  });
+}
+
+function renderTable() {
+  filteredRows = rows.filter(rowMatches);
+  resultTable.replaceChildren();
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  const filterRow = document.createElement("tr");
+
+  headers.forEach((header, index) => {
+    const headerCell = document.createElement("th");
+    headerCell.textContent = header;
+    headerRow.append(headerCell);
+
+    const filterCell = document.createElement("th");
+    const input = document.createElement("input");
+    input.type = "search";
+    input.placeholder = "筛选";
+    input.value = filters[index];
+    input.setAttribute("aria-label", `${header} 筛选`);
+    input.addEventListener("input", () => {
+      filters[index] = input.value;
+      renderTable();
+    });
+    filterCell.append(input);
+    filterRow.append(filterCell);
+  });
+
+  thead.append(headerRow, filterRow);
+  resultTable.append(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const row of filteredRows) {
+    const tr = document.createElement("tr");
+    row.forEach((value) => {
+      const td = document.createElement("td");
+      td.textContent = cleanCell(value);
+      tr.append(td);
+    });
+    tbody.append(tr);
+  }
+  resultTable.append(tbody);
+
+  rowCount.textContent = `显示 ${filteredRows.length} / ${rows.length} 行`;
+  resultPanel.hidden = false;
+  copyVisible.hidden = false;
+}
+
+function toTsv(tableHeaders, tableRows) {
+  return [tableHeaders, ...tableRows].map((row) => row.map(cleanCell).join("\t")).join("\n");
+}
+
+function escapeHtml(value) {
+  return cleanCell(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function toHtmlTable(tableHeaders, tableRows) {
+  const cellStyle = "font-family: 'Trebuchet MS', Arial, sans-serif; mso-number-format:'\\@';";
+  const head = tableHeaders.map((header) => `<th style="${cellStyle} font-weight:700;">${escapeHtml(header)}</th>`).join("");
+  const body = tableRows
+    .map((row) => `<tr>${row.map((value) => `<td style="${cellStyle}">${escapeHtml(value)}</td>`).join("")}</tr>`)
+    .join("");
+  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+async function copyRows(tableHeaders, tableRows) {
+  const text = toTsv(tableHeaders, tableRows);
+  if (navigator.clipboard?.write && window.ClipboardItem) {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob([toHtmlTable(tableHeaders, tableRows)], { type: "text/html" }),
+        "text/plain": new Blob([text], { type: "text/plain" }),
+      }),
+    ]);
+    return;
+  }
+  await navigator.clipboard.writeText(text);
+}
+
+async function generateRows() {
+  if (selectedFiles.length < 2) return;
+  generate.disabled = true;
+  resetResult();
+  setStatus("正在校验并生成", "working");
+
+  try {
+    const workbooks = await Promise.all(selectedFiles.map(readWorkbook));
+    const table1 = workbooks.find((workbook) => detectRole(workbook.headers) === "table1");
+    const table2 = workbooks.find((workbook) => detectRole(workbook.headers) === "table2");
+    if (!table1 || !table2) {
+      const detected = workbooks.map((workbook) => `${workbook.fileName}（${detectRole(workbook.headers)}）`).join("；");
+      throw new Error(`还缺${!table1 ? "表格一" : ""}${!table1 && !table2 ? "、" : ""}${!table2 ? "表格二" : ""}。已识别：${detected}`);
+    }
+
+    rows = buildOutput(table1, table2);
+    filters = headers.map(() => "");
+    renderTable();
+    setStatus(`生成完成，共 ${rows.length} 行`, "success");
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "生成失败", "error");
+  } finally {
+    updateControls();
+  }
+}
+
+fileInput.addEventListener("change", () => {
+  addFiles(fileInput.files);
+  fileInput.value = "";
+});
+
+dropZone.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  dropZone.classList.add("is-dragging");
+});
+
+dropZone.addEventListener("dragleave", () => {
+  dropZone.classList.remove("is-dragging");
+});
+
+dropZone.addEventListener("drop", (event) => {
+  event.preventDefault();
+  dropZone.classList.remove("is-dragging");
+  addFiles(event.dataTransfer.files);
+});
+
+clearFiles.addEventListener("click", () => {
+  selectedFiles = [];
+  resetResult();
+  renderFiles();
+  setStatus("等待文件");
+});
+
+clearFilters.addEventListener("click", () => {
+  filters = headers.map(() => "");
+  renderTable();
+});
+
+copyVisible.addEventListener("click", async () => {
+  await copyRows(headers, filteredRows);
+  setStatus(`已复制 ${filteredRows.length} 行`, "success");
+});
+
+generate.addEventListener("click", generateRows);
+
+renderFiles();
+
+    </script>
+  </body>
+</html>
